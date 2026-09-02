@@ -306,25 +306,37 @@ function courseCard(name, gubun, credit){
     </div>`;
 }
 
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyYyYn3oZlPW_jIfdU_A94tx06Nyf34DaBEQCnQ8JUMhugctIca9AHCdiviRfpRxz6s/exec";
 let currentSid = null;
 let currentName = null;
 
-function setupConfirmButton(sid, name){
+async function setupConfirmButton(sid, name){
   currentSid = sid;
   currentName = name;
   const btn = document.getElementById("confirmBtn");
   const cMsg = document.getElementById("confirmMsg");
   cMsg.className = "msg";
-  btn.disabled = false;
-  btn.textContent = "이상없음 확인";
   btn.style.display = "";
+  btn.disabled = true;
+  btn.textContent = "확인 중...";
 
-  const doneKey = "confirmed_" + sid;
-  if(localStorage.getItem(doneKey)){
+  let confirmed = false;
+  try{
+    const res = await fetch(WEBAPP_URL + "?sid=" + encodeURIComponent(sid));
+    const data = await res.json();
+    confirmed = !!data.confirmed;
+  }catch(err){
+    confirmed = false;
+  }
+
+  if(confirmed){
     btn.disabled = true;
     btn.textContent = "확인 완료";
     cMsg.textContent = "이미 확인 처리되었습니다.";
     cMsg.className = "msg show info";
+  }else{
+    btn.disabled = false;
+    btn.textContent = "이상없음 확인";
   }
 }
 
@@ -334,12 +346,11 @@ async function submitConfirm(){
   btn.disabled = true;
   btn.textContent = "제출 중...";
   try{
-    await fetch("https://script.google.com/macros/s/AKfycbyYyYn3oZlPW_jIfdU_A94tx06Nyf34DaBEQCnQ8JUMhugctIca9AHCdiviRfpRxz6s/exec", {
+    await fetch(WEBAPP_URL, {
       method: "POST",
       mode: "no-cors",
       body: new URLSearchParams({ sid: currentSid, name: currentName })
     });
-    localStorage.setItem("confirmed_" + currentSid, "1");
     btn.textContent = "확인 완료";
     cMsg.textContent = "확인 처리되었습니다. 감사합니다.";
     cMsg.className = "msg show info";
@@ -372,8 +383,8 @@ function renderResult(sid, rec){
   }
   document.getElementById("courses").innerHTML = html;
   document.getElementById("rTotal").textContent = rec["학점(총)"] + "학점";
-  setupConfirmButton(sid, rec.이름);
   resultEl.classList.add("show");
+  setupConfirmButton(sid, rec.이름);
 }
 
 form.addEventListener("submit", async (e) => {
