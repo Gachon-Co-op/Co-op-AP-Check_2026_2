@@ -203,6 +203,22 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
 }
 .notice b{color:var(--accent);}
 
+.confirm-btn{
+  margin-top:18px;
+  width:100%;
+  font-family:inherit;
+  font-size:0.92rem;
+  font-weight:700;
+  color:var(--accent);
+  background:var(--surface);
+  border:1.5px solid var(--accent);
+  border-radius:8px;
+  padding:11px;
+  cursor:pointer;
+}
+.confirm-btn:disabled{opacity:0.6;cursor:default;}
+.confirm-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
 .foot{
   margin-top:28px;
   font-size:0.76rem;
@@ -217,9 +233,9 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
 <div class="page">
 
   <div class="masthead">
-    <div class="eyebrow">장기현장실습 · 2학기</div>
+    <div class="eyebrow">장기현장실습 · 2026-2학기</div>
     <h1>수강신청 내용 조회</h1>
-    <p>학번을 입력하면 본인의 2학기 장기현장실습 수강신청 예정 내용을 확인할 수 있습니다.</p>
+    <p>학번을 입력하면 본인의 2026-2학기 장기현장실습 수강신청 예정 내용을 확인할 수 있습니다.</p>
   </div>
 
   <form id="lookupForm">
@@ -240,13 +256,15 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
         <span class="value" id="rTotal"></span>
       </div>
       <div class="notice">
-        위 내용대로 2학기 장기현장실습 수강신청이 진행될 예정입니다.<br>
-        수정이 필요한 경우 <b>9월 4일(금)</b>까지 담당 교직원에게 연락해 주세요. 별도 연락이 없으면 위 내용대로 신청이 진행됩니다.
+        수정이 필요한 경우 <b>9월 4일(금)</b>까지 카카오톡 오픈채팅 메세지 또는 현장실습지원센터 메일(co-op@gachon.ac.kr)로 연락해 주세요.<br>
+        별도 연락이 없으면 위 내용대로 수강신청이 진행됩니다.<br>
+        이상이 없으면 아래 <b>'이상없음 확인'</b> 버튼을 눌러주세요.
       </div>
+      <button type="button" id="confirmBtn" class="confirm-btn">이상없음 확인</button>
+      <div class="msg" id="confirmMsg"></div>
     </div>
   </div>
 
-  <div class="foot">장기현장실습 담당 교직원 배포용 페이지입니다.</div>
 
 </div>
 
@@ -288,6 +306,53 @@ function courseCard(name, gubun, credit){
     </div>`;
 }
 
+let currentSid = null;
+let currentName = null;
+
+function setupConfirmButton(sid, name){
+  currentSid = sid;
+  currentName = name;
+  const btn = document.getElementById("confirmBtn");
+  const cMsg = document.getElementById("confirmMsg");
+  cMsg.className = "msg";
+  btn.disabled = false;
+  btn.textContent = "이상없음 확인";
+  btn.style.display = "";
+
+  const doneKey = "confirmed_" + sid;
+  if(localStorage.getItem(doneKey)){
+    btn.disabled = true;
+    btn.textContent = "확인 완료";
+    cMsg.textContent = "이미 확인 처리되었습니다.";
+    cMsg.className = "msg show info";
+  }
+}
+
+async function submitConfirm(){
+  const btn = document.getElementById("confirmBtn");
+  const cMsg = document.getElementById("confirmMsg");
+  btn.disabled = true;
+  btn.textContent = "제출 중...";
+  try{
+    await fetch("https://script.google.com/macros/s/AKfycbyYyYn3oZlPW_jIfdU_A94tx06Nyf34DaBEQCnQ8JUMhugctIca9AHCdiviRfpRxz6s/exec", {
+      method: "POST",
+      mode: "no-cors",
+      body: new URLSearchParams({ sid: currentSid, name: currentName })
+    });
+    localStorage.setItem("confirmed_" + currentSid, "1");
+    btn.textContent = "확인 완료";
+    cMsg.textContent = "확인 처리되었습니다. 감사합니다.";
+    cMsg.className = "msg show info";
+  }catch(err){
+    btn.disabled = false;
+    btn.textContent = "이상없음 확인";
+    cMsg.textContent = "제출 중 오류가 발생했습니다. 다시 시도해 주세요.";
+    cMsg.className = "msg show error";
+  }
+}
+
+document.getElementById("confirmBtn").addEventListener("click", submitConfirm);
+
 function renderResult(sid, rec){
   document.getElementById("rName").textContent = rec.이름;
 
@@ -295,6 +360,8 @@ function renderResult(sid, rec){
     document.getElementById("courses").innerHTML =
       `<div class="notice">아직 수강신청 내용이 등록되지 않았습니다. 업데이트 예정이니 잠시 후 다시 확인해 주세요.</div>`;
     document.getElementById("rTotal").textContent = "-";
+    document.getElementById("confirmBtn").style.display = "none";
+    document.getElementById("confirmMsg").className = "msg";
     resultEl.classList.add("show");
     return;
   }
@@ -305,6 +372,7 @@ function renderResult(sid, rec){
   }
   document.getElementById("courses").innerHTML = html;
   document.getElementById("rTotal").textContent = rec["학점(총)"] + "학점";
+  setupConfirmButton(sid, rec.이름);
   resultEl.classList.add("show");
 }
 
